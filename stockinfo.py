@@ -71,13 +71,11 @@ def getHS300Infor(path = DOWNLOADPATH):
                   'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.152 Safari/537.36'}
 
     resp, cont = h.request(hs300url, headers=header)
-    if resp.status == 200:
-        try:
-            f = open(os.path.join('temp', 'HS300.xls'), 'wb')
-        except:
-            print('can not write HS300 stocks to file! ')
-        f.write(cont)
-        f.close()
+    try:
+        f = open(os.path.join('temp', 'HS300.xls'), 'wb')
+    except:
+        print('can not write HS300 stocks to file! ')
+
 
 # def parseSHStockInfo(path=DOWNLOADPATH):
 #     pass;
