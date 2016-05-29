@@ -84,6 +84,11 @@ class Sqlconn():
 
     def updateBasicTable(self):
         codeList = easyutils.stock.get_all_stock_codes()
+        for code in codeList:
+            line = '''insert into {}(code) values({})'''.format(self.BASICKTABLENAME,code)
+            self.cur.execute(line)
+        self.conn.commit()
+        print('stock basic information updated!')
 
     def updateDayHistoryTable(self):
         easyhistory.update()
@@ -94,5 +99,6 @@ class Sqlconn():
 if __name__ =='__main__':
 
     sql = Sqlconn()
-    sql.initDatabase()
-    sql.updateDayHistoryTable()
+    # sql.initDatabase()
+    sql.updateBasicTable()
+    # sql.updateDayHistoryTable()
