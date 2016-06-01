@@ -8,29 +8,25 @@ import pymysql
 import httplib2
 import os
 from bs4 import BeautifulSoup
-from ftplib import FTP
+import xlrd
+from itertools import islice
 
-DOWNLOADPATH = 'temp'
+DOWNLOADPATH = 'config'
 SZSTOCKFILE = 'SZstockInfo.txt'
-SHSTOCKFILE = 'SHstockInfo.txt'
-HS300FILE = 'HS300Infor.txt'
+SHSTOCKFILE = 'A股.xls'
+HS300FILE = '000300cons.xls'
 
 def getSHStockInfo(path = DOWNLOADPATH):
-    shhost = 'http://www.sse.com.cn/assortment/stock/list/share/'
-    shstockurl = 'http://query.sse.com.cn/security/stock/downloadStockListFile.do?csrcCode=&stockCode=&areaName=&stockType=1'
-    h = httplib2.Http(path)
-    header = {'user-agent': \
-                  'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.152 Safari/537.36'}
+    filepath = os.path.join(path,SHSTOCKFILE)
+    assert os.path.exists(filepath),\
+                          '没有找到沪市股票文件，请从“http://www.sse.com.cn/assortment/stock/list/share/”下载，并放置到{}下'.format(path)
 
-    resp, cont = h.request(shhost, headers=header)
+    res = []
+    fh = open(filepath,'r',encoding='gbk')
+    for line in islice(fh,1,None):
+        res.append(line.split())
 
-    if resp.status == 200:
-        try:
-            f = open(os.path.join('temp', 'shstock.xls'), 'wb')
-        except:
-            print('can not write SH stocks to file! ')
-        f.write(cont)
-        f.close()
+    return res
 
 
 def getSZStockInfo(path = DOWNLOADPATH):
@@ -40,12 +36,12 @@ def getSZStockInfo(path = DOWNLOADPATH):
                   'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.152 Safari/537.36'}
 
 
-    soup = BeautifulSoup(open(os.path.join('temp', 'szstock.html'), 'rb'), 'html.parser')
+    soup = BeautifulSoup(open(os.path.join(path, 'szstock.html'), 'rb'), 'html.parser')
     content = soup.find_all('td', class_='cls-data-td')
     res = []
     line = []
     try:
-        fh = open(os.path.join(DOWNLOADPATH,SZSTOCKFILE),'w',encoding='GBK')
+        fh = open(os.path.join(path,SZSTOCKFILE),'w',encoding='GBK')
     except:
         print('无法写入股票基本信息文件')
         return
@@ -65,26 +61,20 @@ def getSZStockInfo(path = DOWNLOADPATH):
 
 
 def getHS300Infor(path = DOWNLOADPATH):
-    hs300url = 'ftp://115.29.204.48/webdata/000300cons.xls'
-    h = httplib2.Http(path)
-    header = {'user-agent': \
-                  'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.152 Safari/537.36'}
+    filepath = os.path.join(path,HS300FILE)
+    assert os.path.exists(filepath),\
+            '没有找到沪深300文件，请从“ftp://115.29.204.48/webdata/000300cons.xls”下载，并放置到{}下'.format(path)
 
-    resp, cont = h.request(hs300url, headers=header)
-    try:
-        f = open(os.path.join('temp', 'HS300.xls'), 'wb')
-    except:
-        print('can not write HS300 stocks to file! ')
+    fh = xlrd.open_workbook(filepath)
+    data = fh.sheet_by_index(0)
+    nrows = data.nrows
+    res = []
+    for line in range(1,nrows):
+        res.append(data.row_values(line))
 
-
-# def parseSHStockInfo(path=DOWNLOADPATH):
-#     pass;
-#
-# def parseSZStockInfo(path=DOWNLOADPATH):
-#     pass;
-#
+    return res
 
 if __name__ == '__main__':
     # getSZStockInfo()
     # getSHStockInfo()
-    getHS300Infor()
+    # getHS300Infor()
