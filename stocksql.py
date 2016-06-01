@@ -90,8 +90,7 @@ class Sqlconn():
         self.conn.commit()
         print('stock basic information updated!')
 
-    def updateDayHistoryTable(self):de) v
-updat
+    def updateDayHistoryTable(self):
         easyhistory.update()
 
 
