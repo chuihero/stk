@@ -12,14 +12,14 @@ import xlrd
 from itertools import islice
 
 DOWNLOADPATH = 'config'
-SZSTOCKFILE = 'SZstockInfo.txt'
+SZSTOCKFILE = '上市公司列表.xls'
 SHSTOCKFILE = 'A股.xls'
 HS300FILE = '000300cons.xls'
 
 def getSHStockInfo(path = DOWNLOADPATH):
-    filepath = os.path.join(path,SHSTOCKFILE)
-    assert os.path.exists(filepath),\
-                          '没有找到沪市股票文件，请从“http://www.sse.com.cn/assortment/stock/list/share/”下载，并放置到{}下'.format(path)
+    filepath = os.path.join(path, SHSTOCKFILE)
+    assert os.path.exists(filepath), \
+            '没有找到沪市股票文件，请从“http://www.sse.com.cn/assortment/stock/list/share/”下载，并放置到{}下'.format(path)
 
     res = []
     fh = open(filepath,'r',encoding='gbk')
@@ -30,32 +30,23 @@ def getSHStockInfo(path = DOWNLOADPATH):
 
 
 def getSZStockInfo(path = DOWNLOADPATH):
-    szstockurl = 'http://www.szse.cn/szseWeb/ShowReport.szse?SHOWTYPE=EXCEL&CATALOGID=1110&tab1PAGENUM=1&ENCODE=1&TABKEY=tab1'
-    h = httplib2.Http(path)
-    header = {'user-agent': \
-                  'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.152 Safari/537.36'}
+    filepath = os.path.join(path, SZSTOCKFILE)
+    assert os.path.exists(filepath), \
+        '没有找到深市股票文件，请从“http://www.szse.cn/szseWeb/ShowReport.szse?SHOWTYPE=EXCEL&CATALOGID=1110&\
+        tab1PAGENUM=1&ENCODE=1&TABKEY=tab1”下载，并放置到{}下'.format(path)
 
-
-    soup = BeautifulSoup(open(os.path.join(path, 'szstock.html'), 'rb'), 'html.parser')
+    soup = BeautifulSoup(open(filepath, 'rb'), 'html.parser')
     content = soup.find_all('td', class_='cls-data-td')
     res = []
     line = []
-    try:
-        fh = open(os.path.join(path,SZSTOCKFILE),'w',encoding='GBK')
-    except:
-        print('无法写入股票基本信息文件')
-        return
 
     for i in range(len(content)):
-        if i%20==0 and i>0 :
-            line = []
+        if i%20==0 and i>0:
             res.append(line)
-            fh.write('\n')
+            line = []
         text = content[i].get_text()
         line.append(text)
-        fh.write(text)
-        fh.write('\t')
-    fh.close()
+    res.append(line)
     return res
 
 
@@ -67,14 +58,11 @@ def getHS300Infor(path = DOWNLOADPATH):
 
     fh = xlrd.open_workbook(filepath)
     data = fh.sheet_by_index(0)
-    nrows = data.nrows
-    res = []
-    for line in range(1,nrows):
-        res.append(data.row_values(line))
+    res = data.col_values(0)
 
     return res
 
 if __name__ == '__main__':
-    # getSZStockInfo()
+    getSZStockInfo()
     # getSHStockInfo()
     # getHS300Infor()

@@ -5,13 +5,18 @@ import easyhistory
 import easyutils
 import pymysql
 import os
-from bs4 import BeautifulSoup
+import stockinfo
+from itertools import islice
+import json
+
+
 
 class Sqlconn():
     DATABASENAME = 'stock'
     BASICKTABLENAME = 'stockbasic'
-    DAYHISTORYTABLENAME = 'stockDayHistory' \
-                          ''
+    DAYHISTORYTABLENAME = 'stockDayHistory'
+    HISTORYPATH = 'history'
+
     def __init__(self,ip= '127.0.0.1',usr='root', psw='worship',char='utf8'):
         try:
             self.conn = pymysql.connect(host=ip,user=usr,password=psw,charset=char)
@@ -54,13 +59,13 @@ class Sqlconn():
         res = cur.fetchall()
         if (self.BASICKTABLENAME,) not in res:
             line = '''create table {}(
-                            code char(6) NOT NULL,
+                            code char(6) primary key NOT NULL,
                             name char(20),
                             updateDate TIMESTAMP,
                             isHS300 tinyint);'''.format(self.BASICKTABLENAME)
             cur.execute(line)
 
-        self.updateBasicTable()
+
 
 
     def initDayHistoryTable(self):
@@ -69,8 +74,8 @@ class Sqlconn():
         res = cur.fetchall()
         if (self.DAYHISTORYTABLENAME,) not in res:
             line = '''create table {}(
-                        code char(6) NOT NULL,
-                        date Date NOT NULL,
+                        code char(6) primary key NOT NULL,
+                        date Date primary key NOT NULL,
                         open float(8,4),
                         high float(8,4),
                         close float(8,4),
@@ -80,18 +85,61 @@ class Sqlconn():
                         factor float)'''.format(self.DAYHISTORYTABLENAME)
             cur.execute(line)
 
-        self.updateDayHistoryTable()
+
 
     def updateBasicTable(self):
-        codeList = easyutils.stock.get_all_stock_codes()
-        for code in codeList:
-            line = '''insert into {}(code) values({})'''.format(self.BASICKTABLENAME,code)
-            self.cur.execute(line)
+        #如果已经有表了，需要重新建
+        s = 'select * from %s'%(self.BASICKTABLENAME)
+        self.cur.execute(s)
+        res = self.cur.fetchall()
+
+        if len(res) != 0:
+            s = 'drop table %s'%self.BASICKTABLENAME
+            self.initBasicTable()
+
+        #沪深300信息
+        hs300list = stockinfo.getHS300Infor()
+        #沪市信息
+        shStockinfo = stockinfo.getSHStockInfo()
+        for i in shStockinfo:
+            s = '''insert {}(code, name,isHS300) values('{}','{}',{})'''.format(self.BASICKTABLENAME,\
+                                                                            i[2],\
+                                                                            i[3],\
+                                                                            int((i[2] in hs300list)))
+            self.cur.execute(s)
+
+        #深市信息
+        szStockinfo = stockinfo.getSZStockInfo()
+        num = 0;
+        for i in szStockinfo:
+            s = '''insert {}(code, name,isHS300) values('{}','{}',{})'''.format(self.BASICKTABLENAME,\
+                                                                            i[0],\
+                                                                            i[1], \
+                                                                            int((i[0] in hs300list)))
+
+
+            self.cur.execute(s)
+
         self.conn.commit()
-        print('stock basic information updated!')
 
     def updateDayHistoryTable(self):
-        easyhistory.update()
+        day = easyhistory.day.Day(path=self.HISTORYPATH)
+        histroypath = os.path.join(self.HISTORYPATH,'day','data')
+        rawpath = os.path.join(self.HISTORYPATH,'day','raw_data')
+
+        for file in os.listdir(histroypath):
+            code  = file[0:6]
+            fh = open(os.path.join(histroypath,file),'r')
+            latestDate = day.store.get_his_stock_date(code)
+
+            for line in islice(fh, 1, None):
+                s =''
+
+
+
+
+
+
 
 
 
@@ -100,5 +148,5 @@ if __name__ =='__main__':
 
     sql = Sqlconn()
     # sql.initDatabase()
-    sql.updateBasicTable()
-    # sql.updateDayHistoryTable()
+    # sql.updateBasicTable()
+    sql.updateDayHistoryTable()
