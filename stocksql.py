@@ -8,6 +8,8 @@ import os
 import stockinfo
 from itertools import islice
 import json
+from datetime import datetime
+import time
 
 
 
@@ -74,15 +76,16 @@ class Sqlconn():
         res = cur.fetchall()
         if (self.DAYHISTORYTABLENAME,) not in res:
             line = '''create table {}(
-                        code char(6) primary key NOT NULL,
-                        date Date primary key NOT NULL,
+                        code char(6) NOT NULL,
+                        date Date NOT NULL,
                         open float(8,4),
                         high float(8,4),
                         close float(8,4),
                         low float(8,4),
                         volume float,
                         amount float,
-                        factor float)'''.format(self.DAYHISTORYTABLENAME)
+                        factor float,
+                        PRIMARY KEY(code,date))'''.format(self.DAYHISTORYTABLENAME)
             cur.execute(line)
 
 
@@ -124,16 +127,53 @@ class Sqlconn():
 
     def updateDayHistoryTable(self):
         day = easyhistory.day.Day(path=self.HISTORYPATH)
+        day.update()
         histroypath = os.path.join(self.HISTORYPATH,'day','data')
         rawpath = os.path.join(self.HISTORYPATH,'day','raw_data')
 
-        for file in os.listdir(histroypath):
-            code  = file[0:6]
-            fh = open(os.path.join(histroypath,file),'r')
-            latestDate = day.store.get_his_stock_date(code)
+        for file in os.listdir(rawpath):
+            if '.csv' not in file:
+                #summary文件，跳过
+                continue
 
-            for line in islice(fh, 1, None):
-                s =''
+            code = file[0:6]
+            latestDate = self.getLatestHistoryDate(code)
+            if latestDate == None:
+                latestDate = datetime.date(datetime(1990,1,1))
+
+            fh = open(os.path.join(rawpath,file),'r')
+
+            for l in islice(fh, 1, None):
+                line = l.split(',')
+                t = time.strptime(line[0],'%Y-%m-%d')
+                y,m,d=t[0:3]
+                date = datetime.date(datetime(y,m,d))
+                if date <= latestDate:
+                    continue
+
+                s = '''insert {} values('{}','{}',{},{},{},{},{},{},{})'''.format(\
+                                                                    self.DAYHISTORYTABLENAME,\
+                                                                    code,\
+                                                                    line[0], \
+                                                                    line[1], \
+                                                                    line[2], \
+                                                                    line[3], \
+                                                                    line[4], \
+                                                                    line[5], \
+                                                                    line[6], \
+                                                                    line[7].rstrip())
+                self.cur.execute(s)
+            self.conn.commit()
+
+
+    def getLatestHistoryDate(self,code):
+        s = "select max(date) from {} where code = '{}'".format(self.DAYHISTORYTABLENAME,code)
+        self.cur.execute(s)
+        res =  self.cur.fetchall()
+
+
+        return res[0][0]
+
 
 
 
@@ -147,6 +187,6 @@ class Sqlconn():
 if __name__ =='__main__':
 
     sql = Sqlconn()
-    # sql.initDatabase()
+    sql.initAll()
     # sql.updateBasicTable()
     sql.updateDayHistoryTable()
