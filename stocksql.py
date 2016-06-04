@@ -15,8 +15,8 @@ import time
 
 class Sqlconn():
     DATABASENAME = 'stock'
-    BASICKTABLENAME = 'stockbasic'
-    DAYHISTORYTABLENAME = 'stockDayHistory'
+    BASICKTABLENAME = 'basic'
+    DAYHISTORYTABLENAME = 'dayHistory'
     HISTORYPATH = 'history'
 
     def __init__(self,ip= '127.0.0.1',usr='root', psw='worship',char='utf8'):
@@ -78,10 +78,10 @@ class Sqlconn():
             line = '''create table {}(
                         code char(6) NOT NULL,
                         date Date NOT NULL,
-                        open float(8,4),
-                        high float(8,4),
-                        close float(8,4),
-                        low float(8,4),
+                        open float(12,4),
+                        high float(12,4),
+                        close float(12,4),
+                        low float(12,4),
                         volume float,
                         amount float,
                         factor float,
@@ -98,6 +98,7 @@ class Sqlconn():
 
         if len(res) != 0:
             s = 'drop table %s'%self.BASICKTABLENAME
+            self.cur.execute(s)
             self.initBasicTable()
 
         #沪深300信息
@@ -127,21 +128,25 @@ class Sqlconn():
 
     def updateDayHistoryTable(self):
         day = easyhistory.day.Day(path=self.HISTORYPATH)
-        day.update()
-        histroypath = os.path.join(self.HISTORYPATH,'day','data')
-        rawpath = os.path.join(self.HISTORYPATH,'day','raw_data')
+        s = 'select code from {}'.format(self.BASICKTABLENAME)
+        codecur = self.conn.cursor()
+        codecur.execute(s)
+        for each in codecur:
+            code = each[0]
+            try:
+                day.update_single_code(code)
+            except:
+                day.init_stock_history(code)
+                day.update_single_code(code)
+        # day.update()
+        # histroypath = os.path.join(self.HISTORYPATH,'day','data')
+            rawfile = os.path.join(self.HISTORYPATH,'day','raw_data','{}.csv'.format(code))
 
-        for file in os.listdir(rawpath):
-            if '.csv' not in file:
-                #summary文件，跳过
-                continue
-
-            code = file[0:6]
             latestDate = self.getLatestHistoryDate(code)
             if latestDate == None:
                 latestDate = datetime.date(datetime(1990,1,1))
 
-            fh = open(os.path.join(rawpath,file),'r')
+            fh = open(rawfile,'r')
 
             for l in islice(fh, 1, None):
                 line = l.split(',')
@@ -164,6 +169,8 @@ class Sqlconn():
                                                                     line[7].rstrip())
                 self.cur.execute(s)
             self.conn.commit()
+            fh.close()
+            print('股票{}已经更新入库'.format(code))
 
 
     def getLatestHistoryDate(self,code):
@@ -187,6 +194,6 @@ class Sqlconn():
 if __name__ =='__main__':
 
     sql = Sqlconn()
-    sql.initAll()
+    # sql.initAll()
     # sql.updateBasicTable()
     sql.updateDayHistoryTable()
