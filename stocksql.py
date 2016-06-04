@@ -116,6 +116,9 @@ class Sqlconn():
         szStockinfo = stockinfo.getSZStockInfo()
         num = 0;
         for i in szStockinfo:
+            if i[8] == '0':
+                #B股，不予考虑
+                continue
             s = '''insert {}(code, name,isHS300) values('{}','{}',{})'''.format(self.BASICKTABLENAME,\
                                                                             i[0],\
                                                                             i[1], \
@@ -133,11 +136,7 @@ class Sqlconn():
         codecur.execute(s)
         for each in codecur:
             code = each[0]
-            try:
-                day.update_single_code(code)
-            except:
-                day.init_stock_history(code)
-                day.update_single_code(code)
+
         # day.update()
         # histroypath = os.path.join(self.HISTORYPATH,'day','data')
             rawfile = os.path.join(self.HISTORYPATH,'day','raw_data','{}.csv'.format(code))
@@ -145,6 +144,13 @@ class Sqlconn():
             latestDate = self.getLatestHistoryDate(code)
             if latestDate == None:
                 latestDate = datetime.date(datetime(1990,1,1))
+
+            if stockinfo.needUpdate(latestDate):
+                try:
+                    day.update_single_code(code)
+                except:
+                    day.init_stock_history(code)
+                    day.update_single_code(code)
 
             fh = open(rawfile,'r')
 

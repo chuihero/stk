@@ -4,12 +4,12 @@
 该文件用于下载上海证券交易所和深证证券交易所中的股票基本信息，也下载HS300的基本信息
 """
 
-import pymysql
-import httplib2
 import os
 from bs4 import BeautifulSoup
 import xlrd
 from itertools import islice
+import datetime
+from easyutils import timeutils
 
 DOWNLOADPATH = 'config'
 SZSTOCKFILE = '上市公司列表.xls'
@@ -62,7 +62,28 @@ def getHS300Infor(path = DOWNLOADPATH):
 
     return res
 
+
+def needUpdate(latestDate):
+    #判断从最新日期到今日，是否需要更新数据。如果是周六周日，或者假期，就不再更新数据
+    assert type(latestDate) == datetime.date, '日期类型错误，请检查'
+    today = datetime.date.today()
+    one = datetime.timedelta(1)
+
+    NeedUpdate = False
+    date = latestDate + one
+    while date <= today:
+        if date.weekday() not in [5,6]:
+            NeedUpdate = True
+            return NeedUpdate
+
+        date = date + one
+    return NeedUpdate
+
+
 if __name__ == '__main__':
-    getSZStockInfo()
+    # res = getSZStockInfo()
     # getSHStockInfo()
     # getHS300Infor()
+    # print(res)
+    date = datetime.date(2016,6,3)
+    print(needUpdate(date))
