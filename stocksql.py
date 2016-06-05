@@ -10,7 +10,8 @@ from itertools import islice
 import json
 from datetime import datetime
 import time
-
+from multiprocessing.pool import ThreadPool
+import threading
 
 
 class Sqlconn():
@@ -134,16 +135,16 @@ class Sqlconn():
         s = 'select code from {}'.format(self.BASICKTABLENAME)
         codecur = self.conn.cursor()
         codecur.execute(s)
+        codes = []
         for each in codecur:
             code = each[0]
+            codes.append(code)
 
-        # day.update()
-        # histroypath = os.path.join(self.HISTORYPATH,'day','data')
-            rawfile = os.path.join(self.HISTORYPATH,'day','raw_data','{}.csv'.format(code))
+            rawfile = os.path.join(self.HISTORYPATH, 'day', 'raw_data', '{}.csv'.format(code))
 
             latestDate = self.getLatestHistoryDate(code)
             if latestDate == None:
-                latestDate = datetime.date(datetime(1990,1,1))
+                latestDate = datetime.date(datetime(1990, 1, 1))
 
             if stockinfo.needUpdate(latestDate):
                 try:
@@ -152,31 +153,75 @@ class Sqlconn():
                     day.init_stock_history(code)
                     day.update_single_code(code)
 
-            fh = open(rawfile,'r')
+            fh = open(rawfile, 'r')
 
             for l in islice(fh, 1, None):
                 line = l.split(',')
-                t = time.strptime(line[0],'%Y-%m-%d')
-                y,m,d=t[0:3]
-                date = datetime.date(datetime(y,m,d))
+                t = time.strptime(line[0], '%Y-%m-%d')
+                y, m, d = t[0:3]
+                date = datetime.date(datetime(y, m, d))
                 if date <= latestDate:
                     continue
 
-                s = '''insert {} values('{}','{}',{},{},{},{},{},{},{})'''.format(\
-                                                                    self.DAYHISTORYTABLENAME,\
-                                                                    code,\
-                                                                    line[0], \
-                                                                    line[1], \
-                                                                    line[2], \
-                                                                    line[3], \
-                                                                    line[4], \
-                                                                    line[5], \
-                                                                    line[6], \
-                                                                    line[7].rstrip())
+                s = '''insert {} values('{}','{}',{},{},{},{},{},{},{})'''.format( \
+                    self.DAYHISTORYTABLENAME, \
+                    code, \
+                    line[0], \
+                    line[1], \
+                    line[2], \
+                    line[3], \
+                    line[4], \
+                    line[5], \
+                    line[6], \
+                    line[7].rstrip())
                 self.cur.execute(s)
             self.conn.commit()
             fh.close()
             print('股票{}已经更新入库'.format(code))
+
+
+    def updateOneHistory(self,code):
+
+        day = easyhistory.Day(path=self.HISTORYPATH)
+
+        rawfile = os.path.join(self.HISTORYPATH, 'day', 'raw_data', '{}.csv'.format(code))
+
+        latestDate = self.getLatestHistoryDate(code)
+        if latestDate == None:
+            latestDate = datetime.date(datetime(1990, 1, 1))
+
+        if stockinfo.needUpdate(latestDate):
+            try:
+                day.update_single_code(code)
+            except:
+                day.init_stock_history(code)
+                day.update_single_code(code)
+
+        fh = open(rawfile, 'r')
+
+        for l in islice(fh, 1, None):
+            line = l.split(',')
+            t = time.strptime(line[0], '%Y-%m-%d')
+            y, m, d = t[0:3]
+            date = datetime.date(datetime(y, m, d))
+            if date <= latestDate:
+                continue
+
+            s = '''insert {} values('{}','{}',{},{},{},{},{},{},{})'''.format( \
+                self.DAYHISTORYTABLENAME, \
+                code, \
+                line[0], \
+                line[1], \
+                line[2], \
+                line[3], \
+                line[4], \
+                line[5], \
+                line[6], \
+                line[7].rstrip())
+            self.cur.execute(s)
+        self.conn.commit()
+        fh.close()
+        print('股票{}已经更新入库'.format(code))
 
 
     def getLatestHistoryDate(self,code):
@@ -188,8 +233,24 @@ class Sqlconn():
         return res[0][0]
 
 
+def fastUpdateThred(code):
+    sql = Sqlconn()
+    sql.updateOneHistory(code)
 
+class FastUpdate(Sqlconn):
+    def __init__(self,thrdNum=10):
+        super(Sqlconn,self).__init__()
+        sql = Sqlconn()
+        s = 'select code from {}'.format(self.BASICKTABLENAME)
+        sql.cur.execute(s)
+        self.codes = []
+        for each in sql.cur:
+            self.codes.append(each[0])
+        self.thrdNum = thrdNum
 
+    def update(self):
+        pool = ThreadPool(self.thrdNum)
+        pool.map(fastUpdateThred,self.codes)
 
 
 
@@ -202,4 +263,5 @@ if __name__ =='__main__':
     sql = Sqlconn()
     # sql.initAll()
     # sql.updateBasicTable()
-    sql.updateDayHistoryTable()
+    # sql.updateDayHistoryTable()
+    FastUpdate().update()
