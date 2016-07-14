@@ -7,7 +7,7 @@ import os
 from bs4 import BeautifulSoup
 
 class Sqlconn():
-    def __init__(self,ip= '127.0.0.1',usr='root', psw='worship',char='utf8'):
+    def __init__(self,ip= '127.0.0.1',usr='henry', psw='Hitfm887tel',char='utf8'):
         try:
             self.conn = pymysql.connect(host=ip,user=usr,password=psw,charset=char)
         except:
