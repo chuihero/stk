@@ -263,5 +263,5 @@ if __name__ =='__main__':
     sql = Sqlconn()
     # sql.initAll()
     # sql.updateBasicTable()
-    # sql.updateDayHistoryTable()
-    FastUpdate().update()
+    sql.updateDayHistoryTable()
+    # FastUpdate().update()
