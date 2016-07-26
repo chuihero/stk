@@ -51,9 +51,10 @@ class Client():
         self.cur.execute(s)
         s = "select date, open/@f as open, high/@f as high,close/@f as close," \
             "low/@f as low, volume, amount/@f as amount from {} " \
-            "where code='{}' and date >='{}'".format(self.DAYHISTORYTABLENAME,\
-                                                     self.code,
-                                                     startDate.strftime('%y-%m-%d'))
+            "where code='{}' and date >='{}' " \
+	        "order by date".format(self.DAYHISTORYTABLENAME,\
+                                   self.code,
+                                   startDate.strftime('%y-%m-%d'))
         df = pd.read_sql(s,self.conn)
         return df
 
