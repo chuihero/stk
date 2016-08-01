@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime
 import json
 import sys
+import talib
 
 class Client():
     DATABASE = 'stock'
@@ -62,5 +63,6 @@ class Client():
 if __name__=='__main__':
     c = Client()
     a = c.getDayLines('000001')
+
     print(a)
 
