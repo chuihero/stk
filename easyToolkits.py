@@ -122,3 +122,12 @@ class VisualTool():
         ax2macd.bar(v.ix[greenmacd].index, v.ix[greenmacd, 'macd'], width=0.2, color='g', ec='g')
         ax2macd.grid()
 
+
+    def drawLines(self,value = None,axesId = 0):
+        if value == None:
+            return
+        
+
+
+    def drawRectangle(self):
+        pass;
