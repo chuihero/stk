@@ -34,7 +34,7 @@ class Client():
             sys.exit()
 
         self.cur = self.conn.cursor()
-    def getDayLines(self,code,yearOffset = 3):
+    def getDayLines(self,code,yearOffset = 3,monthoffset = 0,dayoffset=0):
         """
 
         :param code: 股票代码
@@ -45,8 +45,8 @@ class Client():
         self.code = code
         today = datetime.today()
         startDate = datetime(today.year - yearOffset,\
-                             today.month,\
-                             today.day)
+                             today.month - monthoffset,\
+                             today.day - dayoffset)
 
         s = "select @f:=max(factor) from {} where code = '{}'".format(\
                                             self.DAYHISTORYTABLENAME,\
@@ -60,6 +60,25 @@ class Client():
                                    startDate.strftime('%y-%m-%d'))
         df = pd.read_sql(s,self.conn)
         return df
+
+    def getStockList(self):
+        s = 'select code from {}'.format(self.BASICKTABLENAME)
+        self.cur.execute(s)
+        f = self.cur.fetchall()
+        res = []
+        for i in f:
+            res.append(i[0])
+        return res
+
+
+    def getHS300StockList(self):
+        s = 'select code from {} where isHS300=1'.format(self.BASICKTABLENAME)
+        self.cur.execute(s)
+        f = self.cur.fetchall()
+        res = []
+        for i in f:
+            res.append(i[0])
+        return res
 
 class VisualTool():
     def __init__(self):
@@ -123,10 +142,14 @@ class VisualTool():
         ax2macd.grid()
 
 
-    def drawLines(self,value = None,axesId = 0):
+    def drawLines(self,ax,value,colors):
         if value == None:
             return
-        
+        assert len(value)==len(colors), '颜色和数据不一样长'
+        for i in range(len(value)):
+            ax.axhline(value[i],color=colors[i])
+
+
 
 
     def drawRectangle(self):
