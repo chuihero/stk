@@ -9,6 +9,7 @@ import json
 import sys
 import talib
 import matplotlib.pyplot as plt
+from matplotlib.cbook import iterable
 
 class Client():
     DATABASE = 'stock'
@@ -145,6 +146,8 @@ class VisualTool():
     def drawLines(self,ax,value,colors):
         if value == None:
             return
+        if not iterable(value):
+            value = [value]
         assert len(value)==len(colors), '颜色和数据不一样长'
         for i in range(len(value)):
             ax.axhline(value[i],color=colors[i])
