@@ -12,6 +12,7 @@ from datetime import datetime
 import time
 from multiprocessing.pool import ThreadPool
 import threading
+import sys
 
 
 class Sqlconn():
@@ -20,12 +21,24 @@ class Sqlconn():
     DAYHISTORYTABLENAME = 'dayHistory'
     HISTORYPATH = 'history'
 
-    def __init__(self,ip= '127.0.0.1',usr='root', psw='worship',char='utf8'):
+    def __init__(self,sqlConfigFile='localSqlConfig.json',char='utf8'):
         try:
-            self.conn = pymysql.connect(host=ip,user=usr,password=psw,charset=char)
+            with open(sqlConfigFile) as f:
+                sqlConfig = json.load(f)
         except:
-            print('无法连接数据库！')
-            return
+            print('无法载入SQL连接配置信息，请检查')
+            sys.exit()
+
+        try:
+            self.conn = pymysql.connect(host=sqlConfig['host'], \
+                                        user=sqlConfig['user'], \
+                                        password=sqlConfig['password'], \
+                                        charset=char)
+        except Exception as e:
+            print(e)
+            print('无法打开数据库连接')
+            sys.exit()
+
         self.cur = self.conn.cursor()
         if self.isDatabaseExist():
             self.cur.execute('use {}'.format(self.DATABASENAME))
@@ -83,9 +96,9 @@ class Sqlconn():
                         high float(12,4),
                         close float(12,4),
                         low float(12,4),
-                        volume float,
-                        amount float,
-                        factor float,
+                        volume double(16,1),
+                        amount double(16,1),
+                        factor float(12.4),
                         PRIMARY KEY(code,date))'''.format(self.DAYHISTORYTABLENAME)
             cur.execute(line)
 
@@ -232,6 +245,13 @@ class Sqlconn():
 
         return res[0][0]
 
+    # def reloadStock(self,code):
+    #     s = 'delete from {} where code = {}'.format(self.DAYHISTORYTABLENAME,code)
+    #     self.cur.execute(s)
+    #     self.conn.commit()
+
+
+
 
 def fastUpdateThred(code):
     sql = Sqlconn()
@@ -261,7 +281,8 @@ class FastUpdate(Sqlconn):
 if __name__ =='__main__':
 
     sql = Sqlconn()
-    # sql.initAll()
-    # sql.updateBasicTable()
+    # 如果重新初始化数据库，需要执行下面两句。如果仅是更新数据，下面两句不用执行
+    sql.initAll()
+    sql.updateBasicTable()
     sql.updateDayHistoryTable()
     # FastUpdate().update()
