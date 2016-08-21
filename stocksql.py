@@ -52,7 +52,10 @@ class Sqlconn():
         res = self.cur.fetchall()
         if not (self.DATABASENAME,) in res:
             # 不存在数据库，需要新建
-            self.cur.execute('create database ' + self.DATABASENAME)
+            self.cur.execute("""create database {}
+								CHARACTER SET 'utf8'
+								COLLATE 'utf8_general_ci';"""\
+								.format(self.DATABASENAME))
         self.cur.execute('use {}'.format(self.DATABASENAME))
         return
 
@@ -65,7 +68,8 @@ class Sqlconn():
                             code char(6) primary key NOT NULL,
                             name char(20),
                             updateDate TIMESTAMP,
-                            isHS300 tinyint);'''.format(self.BASICKTABLENAME)
+                            isHS300 tinyint)
+							ENGINE=InnoDB DEFAULT CHARSET=utf8;'''.format(self.BASICKTABLENAME)
             cur.execute(line)
 
 
@@ -86,7 +90,8 @@ class Sqlconn():
                         volume float,
                         amount float,
                         factor float,
-                        PRIMARY KEY(code,date))'''.format(self.DAYHISTORYTABLENAME)
+                        PRIMARY KEY(code,date))
+						ENGINE=InnoDB DEFAULT CHARSET=UTF8;'''.format(self.DAYHISTORYTABLENAME)
             cur.execute(line)
 
 
@@ -263,5 +268,5 @@ if __name__ =='__main__':
     sql = Sqlconn()
     # sql.initAll()
     # sql.updateBasicTable()
-    # sql.updateDayHistoryTable()
-    FastUpdate().update()
+    sql.updateDayHistoryTable()
+    #FastUpdate().update()
