@@ -278,6 +278,10 @@ class Sqlconn():
                 warnings.warn('stock没有raw文件！'%code)
                 continue
 
+            latestDate = self.getLatestHistoryDate(code)
+            if latestDate == None:
+                latestDate = datetime.date(datetime(1990, 1, 1))
+
             for l in islice(fh, 1, None):
                 line = l.split(',')
                 t = time.strptime(line[0], '%Y-%m-%d')
@@ -330,8 +334,10 @@ if __name__ =='__main__':
     # 1. 如果重新初始化数据库，需要执行下面两句。如果仅是更新数据，下面两句不用执行
     # sql.initAll()
     # sql.updateBasicTable()
+
     # 2. 如果数据库已经初始化完成，每天仅需更新数据，仅执行下面一句
     # sql.updateDayHistoryTable()
+
     # 3. 如果已经下载完让raw_data，需要把raw_data更新到数据库中，仅执行下面一句
     sql.commitRawIntoDatabase()
 
