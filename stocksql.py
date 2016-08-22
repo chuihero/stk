@@ -12,6 +12,7 @@ from datetime import datetime
 import time
 from multiprocessing.pool import ThreadPool
 import threading
+import sys
 
 
 class Sqlconn():
@@ -20,12 +21,24 @@ class Sqlconn():
     DAYHISTORYTABLENAME = 'dayHistory'
     HISTORYPATH = 'history'
 
-    def __init__(self,ip= '127.0.0.1',usr='henry', psw='Hitfm887tel',char='utf8'):
+    def __init__(self,sqlConfigFile='localSqlConfig.json',char='utf8'):
         try:
-            self.conn = pymysql.connect(host=ip,user=usr,password=psw,charset=char)
+            with open(sqlConfigFile) as f:
+                sqlConfig = json.load(f)
         except:
-            print('无法连接数据库！')
-            return
+            print('无法载入SQL连接配置信息，请检查')
+            sys.exit()
+
+        try:
+            self.conn = pymysql.connect(host=sqlConfig['host'], \
+                                        user=sqlConfig['user'], \
+                                        password=sqlConfig['password'], \
+                                        charset=char)
+        except Exception as e:
+            print(e)
+            print('无法打开数据库连接')
+            sys.exit()
+
         self.cur = self.conn.cursor()
         if self.isDatabaseExist():
             self.cur.execute('use {}'.format(self.DATABASENAME))
@@ -87,9 +100,9 @@ class Sqlconn():
                         high float(12,4),
                         close float(12,4),
                         low float(12,4),
-                        volume float,
-                        amount float,
-                        factor float,
+                        volume double(16,1),
+                        amount double(16,1),
+                        factor float(12.4),
                         PRIMARY KEY(code,date))
 						ENGINE=InnoDB DEFAULT CHARSET=UTF8;'''.format(self.DAYHISTORYTABLENAME)
             cur.execute(line)
@@ -237,36 +250,78 @@ class Sqlconn():
 
         return res[0][0]
 
+    def reloadStock(self,code):
+        s = 'delete from {} where code = {}'.format(self.DAYHISTORYTABLENAME,code)
+        self.cur.execute(s)
+        self.conn.commit()
+        self.updateOneHistory(code)
 
-def fastUpdateThred(code):
-    sql = Sqlconn()
-    sql.updateOneHistory(code)
+    def updateStocksAndCommitDatabase(self):
+        easyhistory.update()
 
-class FastUpdate(Sqlconn):
-    def __init__(self,thrdNum=10):
-        super(Sqlconn,self).__init__()
-        sql = Sqlconn()
         s = 'select code from {}'.format(self.BASICKTABLENAME)
-        sql.cur.execute(s)
-        self.codes = []
-        for each in sql.cur:
-            self.codes.append(each[0])
-        self.thrdNum = thrdNum
+        codecur = self.conn.cursor()
+        codecur.execute(s)
+        codes = []
+        for each in codecur:
+            code = each[0]
+            codes.append(code)
 
-    def update(self):
-        pool = ThreadPool(self.thrdNum)
-        pool.map(fastUpdateThred,self.codes)
+            rawfile = os.path.join(self.HISTORYPATH, 'day', 'raw_data', '{}.csv'.format(code))
+
+            fh = open(rawfile, 'r')
+
+            for l in islice(fh, 1, None):
+                line = l.split(',')
+                t = time.strptime(line[0], '%Y-%m-%d')
+                y, m, d = t[0:3]
+                date = datetime.date(datetime(y, m, d))
+                if date <= latestDate:
+                    continue
+
+                s = '''insert {} values('{}','{}',{},{},{},{},{},{},{})'''.format( \
+                    self.DAYHISTORYTABLENAME, \
+                    code, \
+                    line[0], \
+                    line[1], \
+                    line[2], \
+                    line[3], \
+                    line[4], \
+                    line[5], \
+                    line[6], \
+                    line[7].rstrip())
+                self.cur.execute(s)
+            self.conn.commit()
+            fh.close()
+            print('股票{}已经更新入库'.format(code))
 
 
-
-
+# def fastUpdateThred(code):
+#     sql = Sqlconn()
+#     sql.updateOneHistory(code)
+#
+# class FastUpdate(Sqlconn):
+#     def __init__(self,thrdNum=10):
+#         super(Sqlconn,self).__init__()
+#         sql = Sqlconn()
+#         s = 'select code from {}'.format(self.BASICKTABLENAME)
+#         sql.cur.execute(s)
+#         self.codes = []
+#         for each in sql.cur:
+#             self.codes.append(each[0])
+#         self.thrdNum = thrdNum
+#
+#     def update(self):
+#         pool = ThreadPool(self.thrdNum)
+#         pool.map(fastUpdateThred,self.codes)
 
 
 
 if __name__ =='__main__':
 
     sql = Sqlconn()
-    # sql.initAll()
-    # sql.updateBasicTable()
+    # 如果重新初始化数据库，需要执行下面两句。如果仅是更新数据，下面两句不用执行
+    sql.initAll()
+    sql.updateBasicTable()
     sql.updateDayHistoryTable()
-    #FastUpdate().update()
+    # FastUpdate().update()
