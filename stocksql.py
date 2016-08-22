@@ -245,36 +245,70 @@ class Sqlconn():
 
         return res[0][0]
 
-    # def reloadStock(self,code):
-    #     s = 'delete from {} where code = {}'.format(self.DAYHISTORYTABLENAME,code)
-    #     self.cur.execute(s)
-    #     self.conn.commit()
+    def reloadStock(self,code):
+        s = 'delete from {} where code = {}'.format(self.DAYHISTORYTABLENAME,code)
+        self.cur.execute(s)
+        self.conn.commit()
+        self.updateOneHistory(code)
 
+    def updateStocksAndCommitDatabase(self):
+        easyhistory.update()
 
-
-
-def fastUpdateThred(code):
-    sql = Sqlconn()
-    sql.updateOneHistory(code)
-
-class FastUpdate(Sqlconn):
-    def __init__(self,thrdNum=10):
-        super(Sqlconn,self).__init__()
-        sql = Sqlconn()
         s = 'select code from {}'.format(self.BASICKTABLENAME)
-        sql.cur.execute(s)
-        self.codes = []
-        for each in sql.cur:
-            self.codes.append(each[0])
-        self.thrdNum = thrdNum
+        codecur = self.conn.cursor()
+        codecur.execute(s)
+        codes = []
+        for each in codecur:
+            code = each[0]
+            codes.append(code)
 
-    def update(self):
-        pool = ThreadPool(self.thrdNum)
-        pool.map(fastUpdateThred,self.codes)
+            rawfile = os.path.join(self.HISTORYPATH, 'day', 'raw_data', '{}.csv'.format(code))
+
+            fh = open(rawfile, 'r')
+
+            for l in islice(fh, 1, None):
+                line = l.split(',')
+                t = time.strptime(line[0], '%Y-%m-%d')
+                y, m, d = t[0:3]
+                date = datetime.date(datetime(y, m, d))
+                if date <= latestDate:
+                    continue
+
+                s = '''insert {} values('{}','{}',{},{},{},{},{},{},{})'''.format( \
+                    self.DAYHISTORYTABLENAME, \
+                    code, \
+                    line[0], \
+                    line[1], \
+                    line[2], \
+                    line[3], \
+                    line[4], \
+                    line[5], \
+                    line[6], \
+                    line[7].rstrip())
+                self.cur.execute(s)
+            self.conn.commit()
+            fh.close()
+            print('股票{}已经更新入库'.format(code))
 
 
-
-
+# def fastUpdateThred(code):
+#     sql = Sqlconn()
+#     sql.updateOneHistory(code)
+#
+# class FastUpdate(Sqlconn):
+#     def __init__(self,thrdNum=10):
+#         super(Sqlconn,self).__init__()
+#         sql = Sqlconn()
+#         s = 'select code from {}'.format(self.BASICKTABLENAME)
+#         sql.cur.execute(s)
+#         self.codes = []
+#         for each in sql.cur:
+#             self.codes.append(each[0])
+#         self.thrdNum = thrdNum
+#
+#     def update(self):
+#         pool = ThreadPool(self.thrdNum)
+#         pool.map(fastUpdateThred,self.codes)
 
 
 
