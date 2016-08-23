@@ -22,7 +22,7 @@ class Sqlconn():
     DAYHISTORYTABLENAME = 'dayHistory'
     HISTORYPATH = 'history'
 
-    def __init__(self,sqlConfigFile='localSqlConfig.json',char='utf8'):
+    def __init__(self,dtype='D',sqlConfigFile='localSqlConfig.json',char='utf8'):
         try:
             with open(sqlConfigFile) as f:
                 sqlConfig = json.load(f)
@@ -45,6 +45,8 @@ class Sqlconn():
             self.cur.execute('use {}'.format(self.DATABASENAME))
         else:
             self.initAll()
+
+        self.dtype = dtype
 
 
     def isDatabaseExist(self):
@@ -257,8 +259,26 @@ class Sqlconn():
         self.conn.commit()
         self.updateOneHistory(code)
 
-    def updateStocks(self):
-        easyhistory.update()
+    def updateStocksDayHistory(self):
+
+        def updateOneStock(code):
+            day = easyhistory.Day(path = self.HISTORYPATH)
+            try:
+                day.update_single_code(code)
+            except:
+                day.init_stock_history(code)
+
+        s = 'select code from {}'.format(self.BASICKTABLENAME)
+        codecur = self.conn.cursor()
+        codecur.execute(s)
+        codes = []
+        for each in codecur:
+            code = each[0]
+            codes.append(code)
+
+        thread = 4
+        pool = ThreadPool(thread)
+        res = pool.map(updateOneStock,codes)
 
     def commitRawIntoDatabase(self):
 
@@ -275,7 +295,7 @@ class Sqlconn():
             try:
                 fh = open(rawfile, 'r')
             except:
-                warnings.warn('stock没有raw文件！'%code)
+                print('stock %s没有raw文件！'%code)
                 continue
 
             latestDate = self.getLatestHistoryDate(code)
@@ -335,10 +355,14 @@ if __name__ =='__main__':
     # sql.initAll()
     # sql.updateBasicTable()
 
-    # 2. 如果数据库已经初始化完成，每天仅需更新数据，仅执行下面一句
+    # 2. 如果数据库已经初始化完成，每天仅需更新数据，仅执行下面一句（单线程，执行
+    #    本句，或执行分布式更新（3和4）
     # sql.updateDayHistoryTable()
 
-    # 3. 如果已经下载完让raw_data，需要把raw_data更新到数据库中，仅执行下面一句
+    # 3. 分布式更新股票数据
+    sql.updateStocksDayHistory()
+
+    # 4. 如果已经下载完让raw_data，需要把raw_data更新到数据库中，仅执行下面一句
     sql.commitRawIntoDatabase()
 
     # debug
